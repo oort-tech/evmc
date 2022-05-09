@@ -148,12 +148,12 @@ struct evmc_tx_context
 {
     evmc_uint256be tx_gas_price;     /**< The transaction gas price. */
     evmc_address tx_origin;          /**< The transaction origin account. */
-    evmc_address block_coinbase;     /**< The miner of the block. */
-    int64_t block_number;            /**< The block number. */
+    // evmc_address block_coinbase;     /**< The miner of the block. */
+    // int64_t block_number;            /**< The block number. */
     int64_t block_timestamp;         /**< The block timestamp. */
-    int64_t block_gas_limit;         /**< The block gas limit. */
-    evmc_uint256be block_difficulty; /**< The block difficulty. */
-    evmc_uint256be chain_id;         /**< The blockchain's ChainID. */
+    // int64_t block_gas_limit;         /**< The block gas limit. */
+    // evmc_uint256be block_difficulty; /**< The block difficulty. */
+    // evmc_uint256be chain_id;         /**< The blockchain's ChainID. */
 };
 
 /**
