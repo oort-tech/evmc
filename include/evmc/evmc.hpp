@@ -404,8 +404,8 @@ public:
     /// Constructor from the EVMC Host primitives.
     /// @param interface  The reference to the Host interface.
     /// @param ctx        The pointer to the Host context object. This parameter MAY be null.
-    HostContext(const evmc_host_interface& interface, evmc_host_context* ctx) noexcept
-      : host{&interface}, context{ctx}
+    HostContext(const evmc_host_interface& inf, evmc_host_context* ctx) noexcept
+      : host{&inf }, context{ctx}
     {}
 
     bool account_exists(const address& address) const noexcept final
@@ -722,14 +722,14 @@ inline void emit_log(evmc_host_context* h,
 
 inline const evmc_host_interface& Host::get_interface() noexcept
 {
-    static constexpr evmc_host_interface interface{
+    static constexpr evmc_host_interface inf{
         ::evmc::internal::account_exists, ::evmc::internal::get_storage,
         ::evmc::internal::set_storage,    ::evmc::internal::get_balance,
         ::evmc::internal::get_code_size,  ::evmc::internal::get_code_hash,
         ::evmc::internal::copy_code,      ::evmc::internal::selfdestruct,
         ::evmc::internal::call,           ::evmc::internal::get_tx_context,
         ::evmc::internal::get_block_hash, ::evmc::internal::emit_log};
-    return interface;
+    return inf;
 }
 }  // namespace evmc
 
