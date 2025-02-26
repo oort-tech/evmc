@@ -1,20 +1,28 @@
-/* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2018-2019 The EVMC Authors.
- * Licensed under the Apache License, Version 2.0.
- */
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2018 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0.
 #pragma once
 
 #include <evmc/evmc.h>
 #include <evmc/helpers.h>
+#include <evmc/hex.hpp>
 
 #include <functional>
 #include <initializer_list>
+#include <ostream>
+#include <string_view>
 #include <utility>
+
+static_assert(EVMC_LATEST_STABLE_REVISION <= EVMC_MAX_REVISION,
+              "latest stable revision ill-defined");
 
 /// EVMC C++ API - wrappers and bindings for C++
 /// @ingroup cpp
 namespace evmc
 {
+/// String view of uint8_t chars.
+using bytes_view = std::basic_string_view<uint8_t>;
+
 /// The big-endian 160-bit hash suitable for keeping an Ethereum address.
 ///
 /// This type wraps C ::evmc_address to make sure objects of this type are always initialized.
@@ -25,8 +33,38 @@ struct address : evmc_address
     /// Initializes bytes to zeros if not other @p init value provided.
     constexpr address(evmc_address init = {}) noexcept : evmc_address{init} {}
 
+    /// Converting constructor from unsigned integer value.
+    ///
+    /// This constructor assigns the @p v value to the last 8 bytes [12:19]
+    /// in big-endian order.
+    constexpr explicit address(uint64_t v) noexcept
+      : evmc_address{{0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      static_cast<uint8_t>(v >> 56),
+                      static_cast<uint8_t>(v >> 48),
+                      static_cast<uint8_t>(v >> 40),
+                      static_cast<uint8_t>(v >> 32),
+                      static_cast<uint8_t>(v >> 24),
+                      static_cast<uint8_t>(v >> 16),
+                      static_cast<uint8_t>(v >> 8),
+                      static_cast<uint8_t>(v >> 0)}}
+    {}
+
     /// Explicit operator converting to bool.
-    constexpr inline explicit operator bool() const noexcept;
+    inline constexpr explicit operator bool() const noexcept;
+
+    /// Implicit operator converting to bytes_view.
+    inline constexpr operator bytes_view() const noexcept { return {bytes, sizeof(bytes)}; }
 };
 
 /// The fixed size array of 32 bytes for storing 256-bit EVM values.
@@ -39,28 +77,84 @@ struct bytes32 : evmc_bytes32
     /// Initializes bytes to zeros if not other @p init value provided.
     constexpr bytes32(evmc_bytes32 init = {}) noexcept : evmc_bytes32{init} {}
 
+    /// Converting constructor from unsigned integer value.
+    ///
+    /// This constructor assigns the @p v value to the last 8 bytes [24:31]
+    /// in big-endian order.
+    constexpr explicit bytes32(uint64_t v) noexcept
+      : evmc_bytes32{{0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      static_cast<uint8_t>(v >> 56),
+                      static_cast<uint8_t>(v >> 48),
+                      static_cast<uint8_t>(v >> 40),
+                      static_cast<uint8_t>(v >> 32),
+                      static_cast<uint8_t>(v >> 24),
+                      static_cast<uint8_t>(v >> 16),
+                      static_cast<uint8_t>(v >> 8),
+                      static_cast<uint8_t>(v >> 0)}}
+    {}
+
     /// Explicit operator converting to bool.
-    constexpr inline explicit operator bool() const noexcept;
+    inline constexpr explicit operator bool() const noexcept;
+
+    /// Implicit operator converting to bytes_view.
+    inline constexpr operator bytes_view() const noexcept { return {bytes, sizeof(bytes)}; }
 };
 
 /// The alias for evmc::bytes32 to represent a big-endian 256-bit integer.
 using uint256be = bytes32;
 
 
-/// Loads 64 bits / 8 bytes of data from the given @p bytes array in big-endian order.
-constexpr inline uint64_t load64be(const uint8_t* bytes) noexcept
+/// Loads 64 bits / 8 bytes of data from the given @p data array in big-endian order.
+inline constexpr uint64_t load64be(const uint8_t* data) noexcept
 {
-    // TODO: Report bug in clang incorrectly optimizing this with AVX2 enabled.
-    return (uint64_t{bytes[0]} << 56) | (uint64_t{bytes[1]} << 48) | (uint64_t{bytes[2]} << 40) |
-           (uint64_t{bytes[3]} << 32) | (uint64_t{bytes[4]} << 24) | (uint64_t{bytes[5]} << 16) |
-           (uint64_t{bytes[6]} << 8) | uint64_t{bytes[7]};
+    return (uint64_t{data[0]} << 56) | (uint64_t{data[1]} << 48) | (uint64_t{data[2]} << 40) |
+           (uint64_t{data[3]} << 32) | (uint64_t{data[4]} << 24) | (uint64_t{data[5]} << 16) |
+           (uint64_t{data[6]} << 8) | uint64_t{data[7]};
 }
 
-/// Loads 32 bits / 4 bytes of data from the given @p bytes array in big-endian order.
-constexpr inline uint32_t load32be(const uint8_t* bytes) noexcept
+/// Loads 64 bits / 8 bytes of data from the given @p data array in little-endian order.
+inline constexpr uint64_t load64le(const uint8_t* data) noexcept
 {
-    return (uint32_t{bytes[0]} << 24) | (uint32_t{bytes[1]} << 16) | (uint32_t{bytes[2]} << 8) |
-           uint32_t{bytes[3]};
+    return uint64_t{data[0]} | (uint64_t{data[1]} << 8) | (uint64_t{data[2]} << 16) |
+           (uint64_t{data[3]} << 24) | (uint64_t{data[4]} << 32) | (uint64_t{data[5]} << 40) |
+           (uint64_t{data[6]} << 48) | (uint64_t{data[7]} << 56);
+}
+
+/// Loads 32 bits / 4 bytes of data from the given @p data array in big-endian order.
+inline constexpr uint32_t load32be(const uint8_t* data) noexcept
+{
+    return (uint32_t{data[0]} << 24) | (uint32_t{data[1]} << 16) | (uint32_t{data[2]} << 8) |
+           uint32_t{data[3]};
+}
+
+/// Loads 32 bits / 4 bytes of data from the given @p data array in little-endian order.
+inline constexpr uint32_t load32le(const uint8_t* data) noexcept
+{
+    return uint32_t{data[0]} | (uint32_t{data[1]} << 8) | (uint32_t{data[2]} << 16) |
+           (uint32_t{data[3]} << 24);
 }
 
 namespace fnv
@@ -69,191 +163,162 @@ constexpr auto prime = 0x100000001b3;              ///< The 64-bit FNV prime num
 constexpr auto offset_basis = 0xcbf29ce484222325;  ///< The 64-bit FNV offset basis.
 
 /// The hashing transformation for 64-bit inputs based on the FNV-1a formula.
-constexpr inline uint64_t fnv1a_by64(uint64_t h, uint64_t x) noexcept
+inline constexpr uint64_t fnv1a_by64(uint64_t h, uint64_t x) noexcept
 {
     return (h ^ x) * prime;
 }
 }  // namespace fnv
 
 
-/// The "equal" comparison operator for the evmc::address type.
-constexpr bool operator==(const address& a, const address& b) noexcept
+/// The "equal to" comparison operator for the evmc::address type.
+inline constexpr bool operator==(const address& a, const address& b) noexcept
 {
-    // TODO: Report bug in clang keeping unnecessary bswap.
-    return load64be(&a.bytes[0]) == load64be(&b.bytes[0]) &&
-           load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
-           load32be(&a.bytes[16]) == load32be(&b.bytes[16]);
+    return load64le(&a.bytes[0]) == load64le(&b.bytes[0]) &&
+           load64le(&a.bytes[8]) == load64le(&b.bytes[8]) &&
+           load32le(&a.bytes[16]) == load32le(&b.bytes[16]);
 }
 
-/// The "not equal" comparison operator for the evmc::address type.
-constexpr bool operator!=(const address& a, const address& b) noexcept
+/// The "not equal to" comparison operator for the evmc::address type.
+inline constexpr bool operator!=(const address& a, const address& b) noexcept
 {
     return !(a == b);
 }
 
-/// The "less" comparison operator for the evmc::address type.
-constexpr bool operator<(const address& a, const address& b) noexcept
+/// The "less than" comparison operator for the evmc::address type.
+inline constexpr bool operator<(const address& a, const address& b) noexcept
 {
     return load64be(&a.bytes[0]) < load64be(&b.bytes[0]) ||
            (load64be(&a.bytes[0]) == load64be(&b.bytes[0]) &&
-            load64be(&a.bytes[8]) < load64be(&b.bytes[8])) ||
-           (load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
-            load32be(&a.bytes[16]) < load32be(&b.bytes[16]));
+            (load64be(&a.bytes[8]) < load64be(&b.bytes[8]) ||
+             (load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
+              load32be(&a.bytes[16]) < load32be(&b.bytes[16]))));
 }
 
-/// The "equal" comparison operator for the evmc::bytes32 type.
-constexpr bool operator==(const bytes32& a, const bytes32& b) noexcept
+/// The "greater than" comparison operator for the evmc::address type.
+inline constexpr bool operator>(const address& a, const address& b) noexcept
 {
-    return load64be(&a.bytes[0]) == load64be(&b.bytes[0]) &&
-           load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
-           load64be(&a.bytes[16]) == load64be(&b.bytes[16]) &&
-           load64be(&a.bytes[24]) == load64be(&b.bytes[24]);
+    return b < a;
 }
 
-/// The "not equal" comparison operator for the evmc::bytes32 type.
-constexpr bool operator!=(const bytes32& a, const bytes32& b) noexcept
+/// The "less than or equal to" comparison operator for the evmc::address type.
+inline constexpr bool operator<=(const address& a, const address& b) noexcept
+{
+    return !(b < a);
+}
+
+/// The "greater than or equal to" comparison operator for the evmc::address type.
+inline constexpr bool operator>=(const address& a, const address& b) noexcept
+{
+    return !(a < b);
+}
+
+/// The "equal to" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator==(const bytes32& a, const bytes32& b) noexcept
+{
+    return load64le(&a.bytes[0]) == load64le(&b.bytes[0]) &&
+           load64le(&a.bytes[8]) == load64le(&b.bytes[8]) &&
+           load64le(&a.bytes[16]) == load64le(&b.bytes[16]) &&
+           load64le(&a.bytes[24]) == load64le(&b.bytes[24]);
+}
+
+/// The "not equal to" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator!=(const bytes32& a, const bytes32& b) noexcept
 {
     return !(a == b);
 }
 
-/// The "less" comparison operator for the evmc::bytes32 type.
-constexpr bool operator<(const bytes32& a, const bytes32& b) noexcept
+/// The "less than" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator<(const bytes32& a, const bytes32& b) noexcept
 {
     return load64be(&a.bytes[0]) < load64be(&b.bytes[0]) ||
            (load64be(&a.bytes[0]) == load64be(&b.bytes[0]) &&
-            load64be(&a.bytes[8]) < load64be(&b.bytes[8])) ||
-           (load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
-            load64be(&a.bytes[16]) < load64be(&b.bytes[16])) ||
-           (load64be(&a.bytes[16]) == load64be(&b.bytes[16]) &&
-            load64be(&a.bytes[24]) < load64be(&b.bytes[24]));
+            (load64be(&a.bytes[8]) < load64be(&b.bytes[8]) ||
+             (load64be(&a.bytes[8]) == load64be(&b.bytes[8]) &&
+              (load64be(&a.bytes[16]) < load64be(&b.bytes[16]) ||
+               (load64be(&a.bytes[16]) == load64be(&b.bytes[16]) &&
+                load64be(&a.bytes[24]) < load64be(&b.bytes[24]))))));
+}
+
+/// The "greater than" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator>(const bytes32& a, const bytes32& b) noexcept
+{
+    return b < a;
+}
+
+/// The "less than or equal to" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator<=(const bytes32& a, const bytes32& b) noexcept
+{
+    return !(b < a);
+}
+
+/// The "greater than or equal to" comparison operator for the evmc::bytes32 type.
+inline constexpr bool operator>=(const bytes32& a, const bytes32& b) noexcept
+{
+    return !(a < b);
 }
 
 /// Checks if the given address is the zero address.
-constexpr inline bool is_zero(const address& a) noexcept
+inline constexpr bool is_zero(const address& a) noexcept
 {
     return a == address{};
 }
 
-constexpr address::operator bool() const noexcept
+inline constexpr address::operator bool() const noexcept
 {
     return !is_zero(*this);
 }
 
 /// Checks if the given bytes32 object has all zero bytes.
-constexpr inline bool is_zero(const bytes32& a) noexcept
+inline constexpr bool is_zero(const bytes32& a) noexcept
 {
     return a == bytes32{};
 }
 
-constexpr bytes32::operator bool() const noexcept
+inline constexpr bytes32::operator bool() const noexcept
 {
     return !is_zero(*this);
 }
 
 namespace literals
 {
-namespace internal
+/// Converts a raw literal into value of type T.
+///
+/// This function is expected to be used on literals in constexpr context only.
+/// In case the input is invalid the std::terminate() is called.
+/// TODO(c++20): Use consteval.
+template <typename T>
+constexpr T parse(std::string_view s) noexcept
 {
-template <typename T, T... Ints>
-struct integer_sequence
-{
-};
-
-template <uint8_t... Bytes>
-using byte_sequence = integer_sequence<uint8_t, Bytes...>;
-
-template <char... Chars>
-using char_sequence = integer_sequence<char, Chars...>;
-
-
-template <typename, typename>
-struct concatenate;
-
-template <uint8_t... Bytes1, uint8_t... Bytes2>
-struct concatenate<byte_sequence<Bytes1...>, byte_sequence<Bytes2...>>
-{
-    using type = byte_sequence<Bytes1..., Bytes2...>;
-};
-
-template <uint8_t D>
-constexpr uint8_t parse_hex_digit() noexcept
-{
-    static_assert((D >= '0' && D <= '9') || (D >= 'a' && D <= 'f') || (D >= 'A' && D <= 'F'),
-                  "literal must be hexadecimal integer");
-    return static_cast<uint8_t>(
-        (D >= '0' && D <= '9') ? D - '0' : (D >= 'a' && D <= 'f') ? D - 'a' + 10 : D - 'A' + 10);
+    return from_hex<T>(s).value();
 }
-
-
-template <typename>
-struct parse_digits;
-
-template <uint8_t Digit1, uint8_t Digit2>
-struct parse_digits<byte_sequence<Digit1, Digit2>>
-{
-    using type = byte_sequence<static_cast<uint8_t>(parse_hex_digit<Digit1>() << 4) |
-                               parse_hex_digit<Digit2>()>;
-};
-
-template <uint8_t Digit1, uint8_t Digit2, uint8_t... Rest>
-struct parse_digits<byte_sequence<Digit1, Digit2, Rest...>>
-{
-    using type = typename concatenate<typename parse_digits<byte_sequence<Digit1, Digit2>>::type,
-                                      typename parse_digits<byte_sequence<Rest...>>::type>::type;
-};
-
-
-template <typename, typename>
-struct parse_literal;
-
-template <typename T, char Prefix1, char Prefix2, char... Literal>
-struct parse_literal<T, char_sequence<Prefix1, Prefix2, Literal...>>
-{
-    static_assert(Prefix1 == '0' && Prefix2 == 'x', "literal must be in hexadecimal notation");
-    static_assert(sizeof...(Literal) == sizeof(T) * 2, "literal must match the result type size");
-
-    template <uint8_t... Bytes>
-    static constexpr T create_from(byte_sequence<Bytes...>) noexcept
-    {
-        return T{{{Bytes...}}};
-    }
-
-    static constexpr T get() noexcept
-    {
-        return create_from(typename parse_digits<byte_sequence<Literal...>>::type{});
-    }
-};
-
-template <typename T, char Digit>
-struct parse_literal<T, char_sequence<Digit>>
-{
-    static_assert(Digit == '0', "only 0 is allowed as a single digit literal");
-    static constexpr T get() noexcept { return {}; }
-};
-
-template <typename T, char... Literal>
-constexpr T parse() noexcept
-{
-    return parse_literal<T, char_sequence<Literal...>>::get();
-}
-}  // namespace internal
 
 /// Literal for evmc::address.
-template <char... Literal>
-constexpr address operator"" _address() noexcept
+constexpr address operator""_address(const char* s) noexcept
 {
-    return internal::parse<address, Literal...>();
+    return parse<address>(s);
 }
 
 /// Literal for evmc::bytes32.
-template <char... Literal>
-constexpr bytes32 operator"" _bytes32() noexcept
+constexpr bytes32 operator""_bytes32(const char* s) noexcept
 {
-    return internal::parse<bytes32, Literal...>();
+    return parse<bytes32>(s);
 }
 }  // namespace literals
 
 using namespace literals;
+
+
+/// @copydoc evmc_status_code_to_string
+inline const char* to_string(evmc_status_code status_code) noexcept
+{
+    return evmc_status_code_to_string(status_code);
+}
+
+/// @copydoc evmc_revision_to_string
+inline const char* to_string(evmc_revision rev) noexcept
+{
+    return evmc_revision_to_string(rev);
+}
 
 
 /// Alias for evmc_make_result().
@@ -263,11 +328,12 @@ constexpr auto make_result = evmc_make_result;
 ///
 /// This is a RAII wrapper for evmc_result and objects of this type
 /// automatically release attached resources.
-class result : private evmc_result
+class Result : private evmc_result
 {
 public:
     using evmc_result::create_address;
     using evmc_result::gas_left;
+    using evmc_result::gas_refund;
     using evmc_result::output_data;
     using evmc_result::output_size;
     using evmc_result::status_code;
@@ -279,44 +345,80 @@ public:
     ///
     /// @param _status_code  The status code.
     /// @param _gas_left     The amount of gas left.
+    /// @param _gas_refund   The amount of refunded gas.
     /// @param _output_data  The pointer to the output.
     /// @param _output_size  The output size.
-    result(evmc_status_code _status_code,
-           int64_t _gas_left,
-           const uint8_t* _output_data,
-           size_t _output_size) noexcept
-      : evmc_result{make_result(_status_code, _gas_left, _output_data, _output_size)}
+    explicit Result(evmc_status_code _status_code,
+                    int64_t _gas_left,
+                    int64_t _gas_refund,
+                    const uint8_t* _output_data,
+                    size_t _output_size) noexcept
+      : evmc_result{make_result(_status_code, _gas_left, _gas_refund, _output_data, _output_size)}
     {}
 
+    /// Creates the result without output.
+    ///
+    /// @param _status_code  The status code.
+    /// @param _gas_left     The amount of gas left.
+    /// @param _gas_refund   The amount of refunded gas.
+    explicit Result(evmc_status_code _status_code = EVMC_INTERNAL_ERROR,
+                    int64_t _gas_left = 0,
+                    int64_t _gas_refund = 0) noexcept
+      : evmc_result{make_result(_status_code, _gas_left, _gas_refund, nullptr, 0)}
+    {}
+
+    /// Creates the result of contract creation.
+    ///
+    /// @param _status_code     The status code.
+    /// @param _gas_left        The amount of gas left.
+    /// @param _gas_refund      The amount of refunded gas.
+    /// @param _create_address  The address of the possibly created account.
+    explicit Result(evmc_status_code _status_code,
+                    int64_t _gas_left,
+                    int64_t _gas_refund,
+                    const evmc_address& _create_address) noexcept
+      : evmc_result{make_result(_status_code, _gas_left, _gas_refund, nullptr, 0)}
+    {
+        create_address = _create_address;
+    }
+
     /// Converting constructor from raw evmc_result.
-    explicit result(evmc_result const& res) noexcept : evmc_result{res} {}
+    ///
+    /// This object takes ownership of the resources of @p res.
+    explicit Result(const evmc_result& res) noexcept : evmc_result{res} {}
 
     /// Destructor responsible for automatically releasing attached resources.
-    ~result() noexcept
+    ~Result() noexcept
     {
         if (release != nullptr)
             release(this);
     }
 
     /// Move constructor.
-    result(result&& other) noexcept : evmc_result{other}
+    Result(Result&& other) noexcept : evmc_result{other}
     {
         other.release = nullptr;  // Disable releasing of the rvalue object.
     }
 
     /// Move assignment operator.
     ///
-    /// The self-assigment MUST never happen.
+    /// The self-assignment MUST never happen.
     ///
     /// @param other The other result object.
     /// @return      The reference to the left-hand side object.
-    result& operator=(result&& other) noexcept
+    Result& operator=(Result&& other) noexcept
     {
-        this->~result();                           // Release this object.
+        this->~Result();                           // Release this object.
         static_cast<evmc_result&>(*this) = other;  // Copy data.
         other.release = nullptr;                   // Disable releasing of the rvalue object.
         return *this;
     }
+
+    /// Access the result object as a referenced to ::evmc_result.
+    evmc_result& raw() noexcept { return *this; }
+
+    /// Access the result object as a const referenced to ::evmc_result.
+    const evmc_result& raw() const noexcept { return *this; }
 
     /// Releases the ownership and returns the raw copy of evmc_result.
     ///
@@ -368,10 +470,10 @@ public:
                              size_t buffer_size) const noexcept = 0;
 
     /// @copydoc evmc_host_interface::selfdestruct
-    virtual void selfdestruct(const address& addr, const address& beneficiary) noexcept = 0;
+    virtual bool selfdestruct(const address& addr, const address& beneficiary) noexcept = 0;
 
     /// @copydoc evmc_host_interface::call
-    virtual result call(const evmc_message& msg) noexcept = 0;
+    virtual Result call(const evmc_message& msg) noexcept = 0;
 
     /// @copydoc evmc_host_interface::get_tx_context
     virtual evmc_tx_context get_tx_context() const noexcept = 0;
@@ -385,6 +487,12 @@ public:
                           size_t data_size,
                           const bytes32 topics[],
                           size_t num_topics) noexcept = 0;
+
+    /// @copydoc evmc_host_interface::access_account
+    virtual evmc_access_status access_account(const address& addr) noexcept = 0;
+
+    /// @copydoc evmc_host_interface::access_storage
+    virtual evmc_access_status access_storage(const address& addr, const bytes32& key) noexcept = 0;
 };
 
 
@@ -395,7 +503,6 @@ class HostContext : public HostInterface
 {
     const evmc_host_interface* host = nullptr;
     evmc_host_context* context = nullptr;
-    mutable evmc_tx_context tx_context = {};
 
 public:
     /// Default constructor for null Host context.
@@ -405,7 +512,7 @@ public:
     /// @param interface  The reference to the Host interface.
     /// @param ctx        The pointer to the Host context object. This parameter MAY be null.
     HostContext(const evmc_host_interface& inf, evmc_host_context* ctx) noexcept
-      : host{&inf }, context{ctx}
+      : host{&inf}, context{ctx}
     {}
 
     bool account_exists(const address& address) const noexcept final
@@ -448,28 +555,18 @@ public:
         return host->copy_code(context, &address, code_offset, buffer_data, buffer_size);
     }
 
-    void selfdestruct(const address& addr, const address& beneficiary) noexcept final
+    bool selfdestruct(const address& addr, const address& beneficiary) noexcept final
     {
-        host->selfdestruct(context, &addr, &beneficiary);
+        return host->selfdestruct(context, &addr, &beneficiary);
     }
 
-    result call(const evmc_message& message) noexcept final
+    Result call(const evmc_message& message) noexcept final
     {
-        return result{host->call(context, &message)};
+        return Result{host->call(context, &message)};
     }
 
     /// @copydoc HostInterface::get_tx_context()
-    ///
-    /// The implementation caches the received transaction context
-    /// by assuming that the block timestamp should never be zero.
-    ///
-    /// @return The cached transaction context.
-    evmc_tx_context get_tx_context() const noexcept final
-    {
-        if (tx_context.block_timestamp == 0)
-            tx_context = host->get_tx_context(context);
-        return tx_context;
-    }
+    evmc_tx_context get_tx_context() const noexcept final { return host->get_tx_context(context); }
 
     bytes32 get_block_hash(int64_t number) const noexcept final
     {
@@ -483,6 +580,16 @@ public:
                   size_t topics_count) noexcept final
     {
         host->emit_log(context, &addr, data, data_size, topics, topics_count);
+    }
+
+    evmc_access_status access_account(const address& address) noexcept final
+    {
+        return host->access_account(context, &address);
+    }
+
+    evmc_access_status access_storage(const address& address, const bytes32& key) noexcept final
+    {
+        return host->access_storage(context, &address, &key);
     }
 };
 
@@ -576,7 +683,7 @@ public:
         return (get_capabilities() & static_cast<evmc_capabilities_flagset>(capability)) != 0;
     }
 
-    /// @copydoc evmc::vm::get_capabilities
+    /// @copydoc evmc_vm::get_capabilities
     evmc_capabilities_flagset get_capabilities() const noexcept
     {
         return m_instance->get_capabilities(m_instance);
@@ -589,18 +696,18 @@ public:
     }
 
     /// @copydoc evmc_execute()
-    result execute(const evmc_host_interface& host,
+    Result execute(const evmc_host_interface& host,
                    evmc_host_context* ctx,
                    evmc_revision rev,
                    const evmc_message& msg,
                    const uint8_t* code,
                    size_t code_size) noexcept
     {
-        return result{m_instance->execute(m_instance, &host, ctx, rev, &msg, code, code_size)};
+        return Result{m_instance->execute(m_instance, &host, ctx, rev, &msg, code, code_size)};
     }
 
     /// Convenient variant of the VM::execute() that takes reference to evmc::Host class.
-    result execute(Host& host,
+    Result execute(Host& host,
                    evmc_revision rev,
                    const evmc_message& msg,
                    const uint8_t* code,
@@ -617,14 +724,21 @@ public:
     /// but without providing the Host context and interface.
     /// This method is for experimental precompiles support where execution is
     /// guaranteed not to require any Host access.
-    result execute(evmc_revision rev,
+    Result execute(evmc_revision rev,
                    const evmc_message& msg,
                    const uint8_t* code,
                    size_t code_size) noexcept
     {
-        return result{
+        return Result{
             m_instance->execute(m_instance, nullptr, nullptr, rev, &msg, code, code_size)};
     }
+
+    /// Returns the pointer to C EVMC struct representing the VM.
+    ///
+    /// Gives access to the C EVMC VM struct to allow advanced interaction with the VM not supported
+    /// by the C++ interface. Use as the last resort.
+    /// This object still owns the VM after returning the pointer. The returned pointer MAY be null.
+    evmc_vm* get_raw_pointer() const noexcept { return m_instance; }
 
 private:
     evmc_vm* m_instance = nullptr;
@@ -686,11 +800,11 @@ inline size_t copy_code(evmc_host_context* h,
     return Host::from_context(h)->copy_code(*addr, code_offset, buffer_data, buffer_size);
 }
 
-inline void selfdestruct(evmc_host_context* h,
+inline bool selfdestruct(evmc_host_context* h,
                          const evmc_address* addr,
                          const evmc_address* beneficiary) noexcept
 {
-    Host::from_context(h)->selfdestruct(*addr, *beneficiary);
+    return Host::from_context(h)->selfdestruct(*addr, *beneficiary);
 }
 
 inline evmc_result call(evmc_host_context* h, const evmc_message* msg) noexcept
@@ -718,21 +832,53 @@ inline void emit_log(evmc_host_context* h,
     Host::from_context(h)->emit_log(*addr, data, data_size, static_cast<const bytes32*>(topics),
                                     num_topics);
 }
+
+inline evmc_access_status access_account(evmc_host_context* h, const evmc_address* addr) noexcept
+{
+    return Host::from_context(h)->access_account(*addr);
+}
+
+inline evmc_access_status access_storage(evmc_host_context* h,
+                                         const evmc_address* addr,
+                                         const evmc_bytes32* key) noexcept
+{
+    return Host::from_context(h)->access_storage(*addr, *key);
+}
 }  // namespace internal
 
 inline const evmc_host_interface& Host::get_interface() noexcept
 {
-    static constexpr evmc_host_interface inf{
+    static constexpr evmc_host_interface inf = {
         ::evmc::internal::account_exists, ::evmc::internal::get_storage,
         ::evmc::internal::set_storage,    ::evmc::internal::get_balance,
         ::evmc::internal::get_code_size,  ::evmc::internal::get_code_hash,
         ::evmc::internal::copy_code,      ::evmc::internal::selfdestruct,
         ::evmc::internal::call,           ::evmc::internal::get_tx_context,
-        ::evmc::internal::get_block_hash, ::evmc::internal::emit_log};
+        ::evmc::internal::get_block_hash, ::evmc::internal::emit_log,
+        ::evmc::internal::access_account, ::evmc::internal::access_storage,
+    };
     return inf;
 }
 }  // namespace evmc
 
+
+/// "Stream out" operator implementation for ::evmc_status_code.
+///
+/// @note This is defined in global namespace to match ::evmc_status_code definition and allow
+///       convenient operator overloading usage.
+inline std::ostream& operator<<(std::ostream& os, evmc_status_code status_code)
+{
+    return os << evmc::to_string(status_code);
+}
+
+/// "Stream out" operator implementation for ::evmc_revision.
+///
+/// @note This is defined in global namespace to match ::evmc_revision definition and allow
+///       convenient operator overloading usage.
+inline std::ostream& operator<<(std::ostream& os, evmc_revision rev)
+{
+    return os << evmc::to_string(rev);
+}
 
 namespace std
 {
@@ -746,8 +892,8 @@ struct hash<evmc::address>
         using namespace evmc;
         using namespace fnv;
         return static_cast<size_t>(fnv1a_by64(
-            fnv1a_by64(fnv1a_by64(fnv::offset_basis, load64be(&s.bytes[0])), load64be(&s.bytes[8])),
-            load32be(&s.bytes[16])));
+            fnv1a_by64(fnv1a_by64(fnv::offset_basis, load64le(&s.bytes[0])), load64le(&s.bytes[8])),
+            load32le(&s.bytes[16])));
     }
 };
 
@@ -761,10 +907,10 @@ struct hash<evmc::bytes32>
         using namespace evmc;
         using namespace fnv;
         return static_cast<size_t>(
-            fnv1a_by64(fnv1a_by64(fnv1a_by64(fnv1a_by64(fnv::offset_basis, load64be(&s.bytes[0])),
-                                             load64be(&s.bytes[8])),
-                                  load64be(&s.bytes[16])),
-                       load64be(&s.bytes[24])));
+            fnv1a_by64(fnv1a_by64(fnv1a_by64(fnv1a_by64(fnv::offset_basis, load64le(&s.bytes[0])),
+                                             load64le(&s.bytes[8])),
+                                  load64le(&s.bytes[16])),
+                       load64le(&s.bytes[24])));
     }
 };
 }  // namespace std

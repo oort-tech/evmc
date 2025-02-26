@@ -1,5 +1,5 @@
 # EVMC: Ethereum Client-VM Connector API.
-# Copyright 2018-2019 The EVMC Authors.
+# Copyright 2018 The EVMC Authors.
 # Licensed under the Apache License, Version 2.0.
 
 include(EVMC)
@@ -13,7 +13,7 @@ add_test(NAME ${prefix}/help COMMAND evmc::evmc-vmtester --version --help)
 set_tests_properties(${prefix}/help PROPERTIES PASS_REGULAR_EXPRESSION "Usage:")
 
 add_test(NAME ${prefix}/nonexistingvm COMMAND evmc::evmc-vmtester nonexistingvm)
-set_tests_properties(${prefix}/nonexistingvm PROPERTIES PASS_REGULAR_EXPRESSION "[Cc]annot open")
+set_tests_properties(${prefix}/nonexistingvm PROPERTIES PASS_REGULAR_EXPRESSION "[Cc]annot open|no such file")
 
 add_test(NAME ${prefix}/noarg COMMAND evmc::evmc-vmtester)
 set_tests_properties(${prefix}/noarg PROPERTIES PASS_REGULAR_EXPRESSION "is required")
@@ -29,3 +29,6 @@ set_tests_properties(${prefix}/unknown-option PROPERTIES PASS_REGULAR_EXPRESSION
 
 add_test(NAME ${prefix}/option-long-prefix COMMAND evmc::evmc-vmtester ---)
 set_tests_properties(${prefix}/option-long-prefix PROPERTIES PASS_REGULAR_EXPRESSION "Unknown")
+
+get_property(vmtester_tests DIRECTORY PROPERTY TESTS)
+set_tests_properties(${vmtester_tests} PROPERTIES ENVIRONMENT LLVM_PROFILE_FILE=${CMAKE_BINARY_DIR}/vmtester-%m-%p.profraw)

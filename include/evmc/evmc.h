@@ -2,7 +2,7 @@
  * EVMC: Ethereum Client-VM Connector API
  *
  * @copyright
- * Copyright 2016-2019 The EVMC Authors.
+ * Copyright 2016 The EVMC Authors.
  * Licensed under the Apache License, Version 2.0.
  *
  * @defgroup EVMC EVMC
@@ -28,7 +28,7 @@
 #include <stddef.h>  /* Definition of size_t. */
 #include <stdint.h>  /* Definition of int64_t, uint64_t. */
 
-#if __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -44,7 +44,7 @@ enum
      *
      * @see @ref versioning
      */
-    EVMC_ABI_VERSION = 7
+    EVMC_ABI_VERSION = 10
 };
 
 
@@ -89,8 +89,9 @@ enum evmc_flags
 };
 
 /**
- * The message describing an EVM call,
- * including a zero-depth calls from a transaction origin.
+ * The message describing an EVM call, including a zero-depth calls from a transaction origin.
+ *
+ * Most of the fields are modelled by the section 8. Message Call of the Ethereum Yellow Paper.
  */
 struct evmc_message
 {
@@ -103,21 +104,48 @@ struct evmc_message
      */
     uint32_t flags;
 
-    /** The call depth. */
+    /**
+     * The present depth of the message call stack.
+     *
+     * Defined as `e` in the Yellow Paper.
+     */
     int32_t depth;
 
-    /** The amount of gas for message execution. */
+    /**
+     * The amount of gas available to the message execution.
+     *
+     * Defined as `g` in the Yellow Paper.
+     */
     int64_t gas;
 
-    /** The destination of the message. */
-    evmc_address destination;
+    /**
+     * The recipient of the message.
+     *
+     * This is the address of the account which storage/balance/nonce is going to be modified
+     * by the message execution. In case of ::EVMC_CALL, this is also the account where the
+     * message value evmc_message::value is going to be transferred.
+     * For ::EVMC_CALLCODE or ::EVMC_DELEGATECALL, this may be different from
+     * the evmc_message::code_address.
+     *
+     * Defined as `r` in the Yellow Paper.
+     */
+    evmc_address recipient;
 
-    /** The sender of the message. */
+    /**
+     * The sender of the message.
+     *
+     * The address of the sender of a message call defined as `s` in the Yellow Paper.
+     * This must be the message recipient of the message at the previous (lower) depth,
+     * except for the ::EVMC_DELEGATECALL where recipient is the 2 levels above the present depth.
+     * At the depth 0 this must be the transaction origin.
+     */
     evmc_address sender;
 
     /**
      * The message input data.
      *
+     * The arbitrary length byte array of the input data of the call,
+     * defined as `d` in the Yellow Paper.
      * This MAY be NULL.
      */
     const uint8_t* input_data;
@@ -131,29 +159,49 @@ struct evmc_message
 
     /**
      * The amount of Ether transferred with the message.
+     *
+     * This is transferred value for ::EVMC_CALL or apparent value for ::EVMC_DELEGATECALL.
+     * Defined as `v` or `v~` in the Yellow Paper.
      */
     evmc_uint256be value;
 
     /**
      * The optional value used in new contract address construction.
      *
-     * Ignored unless kind is EVMC_CREATE2.
+     * Needed only for a Host to calculate created address when kind is ::EVMC_CREATE2.
+     * Ignored in evmc_execute_fn().
      */
     evmc_bytes32 create2_salt;
+
+    /**
+     * The address of the code to be executed.
+     *
+     * For ::EVMC_CALLCODE or ::EVMC_DELEGATECALL this may be different from
+     * the evmc_message::recipient.
+     * Not required when invoking evmc_execute_fn(), only when invoking evmc_call_fn().
+     * Ignored if kind is ::EVMC_CREATE or ::EVMC_CREATE2.
+     *
+     * In case of ::EVMC_CAPABILITY_PRECOMPILES implementation, this fields should be inspected
+     * to identify the requested precompile.
+     *
+     * Defined as `c` in the Yellow Paper.
+     */
+    evmc_address code_address;
 };
 
 
 /** The transaction and block data for execution. */
 struct evmc_tx_context
 {
-    evmc_uint256be tx_gas_price;     /**< The transaction gas price. */
-    evmc_address tx_origin;          /**< The transaction origin account. */
-    // evmc_address block_coinbase;     /**< The miner of the block. */
-    int64_t block_number;            /**< The block number. */
-    int64_t block_timestamp;         /**< The block timestamp. */
-    // int64_t block_gas_limit;         /**< The block gas limit. */
-    // evmc_uint256be block_difficulty; /**< The block difficulty. */
-    evmc_uint256be chain_id;         /**< The blockchain's ChainID. */
+    evmc_uint256be tx_gas_price;      /**< The transaction gas price. */
+    evmc_address tx_origin;           /**< The transaction origin account. */
+    evmc_address block_coinbase;      /**< The miner of the block. */
+    int64_t block_number;             /**< The block number. */
+    int64_t block_timestamp;          /**< The block timestamp. */
+    int64_t block_gas_limit;          /**< The block gas limit. */
+    evmc_uint256be block_prev_randao; /**< The block previous RANDAO (EIP-4399). */
+    evmc_uint256be chain_id;          /**< The blockchain's ChainID. */
+    evmc_uint256be block_base_fee;    /**< The block base fee per gas (EIP-1559, EIP-3198). */
 };
 
 /**
@@ -295,6 +343,9 @@ enum evmc_status_code
      */
     EVMC_WASM_TRAP = 16,
 
+    /** The caller does not have enough funds for value transfer. */
+    EVMC_INSUFFICIENT_BALANCE = 17,
+
     /** EVM implementation generic internal error. */
     EVMC_INTERNAL_ERROR = -1,
 
@@ -345,28 +396,37 @@ struct evmc_result
     /**
      * The amount of gas left after the execution.
      *
-     *  If evmc_result::code is not ::EVMC_SUCCESS nor ::EVMC_REVERT
-     *  the value MUST be 0.
+     * If evmc_result::status_code is neither ::EVMC_SUCCESS nor ::EVMC_REVERT
+     * the value MUST be 0.
      */
     int64_t gas_left;
 
     /**
+     * The refunded gas accumulated from this execution and its sub-calls.
+     *
+     * The transaction gas refund limit is not applied.
+     * If evmc_result::status_code is other than ::EVMC_SUCCESS the value MUST be 0.
+     */
+    int64_t gas_refund;
+
+    /**
      * The reference to output data.
      *
-     *  The output contains data coming from RETURN opcode (iff evmc_result::code
-     *  field is ::EVMC_SUCCESS) or from REVERT opcode.
+     * The output contains data coming from RETURN opcode (iff evmc_result::code
+     * field is ::EVMC_SUCCESS) or from REVERT opcode.
      *
-     *  The memory containing the output data is owned by EVM and has to be
-     *  freed with evmc_result::release().
+     * The memory containing the output data is owned by EVM and has to be
+     * freed with evmc_result::release().
      *
-     *  This MAY be NULL.
+     * This pointer MAY be NULL.
+     * If evmc_result::output_size is 0 this pointer MUST NOT be dereferenced.
      */
     const uint8_t* output_data;
 
     /**
      * The size of the output data.
      *
-     *  If output_data is NULL this MUST be 0.
+     * If evmc_result::output_data is NULL this MUST be 0.
      */
     size_t output_size;
 
@@ -392,12 +452,11 @@ struct evmc_result
     evmc_release_result_fn release;
 
     /**
-     * The address of the contract created by create instructions.
+     * The address of the possibly created contract.
      *
-     * This field has valid value only if:
-     * - it is a result of the Host method evmc_host_interface::call
-     * - and the result describes successful contract creation
-     *   (evmc_result::status_code is ::EVMC_SUCCESS).
+     * The create address may be provided even though the contract creation has failed
+     * (evmc_result::status_code is not ::EVMC_SUCCESS). This is useful in situations
+     * when the address is observable, e.g. access to it remains warm.
      * In all other cases the address MUST be null bytes.
      */
     evmc_address create_address;
@@ -405,13 +464,13 @@ struct evmc_result
     /**
      * Reserved data that MAY be used by a evmc_result object creator.
      *
-     *  This reserved 4 bytes together with 20 bytes from create_address form
-     *  24 bytes of memory called "optional data" within evmc_result struct
-     *  to be optionally used by the evmc_result object creator.
+     * This reserved 4 bytes together with 20 bytes from create_address form
+     * 24 bytes of memory called "optional data" within evmc_result struct
+     * to be optionally used by the evmc_result object creator.
      *
-     *  @see evmc_result_optional_data, evmc_get_optional_data().
+     * @see evmc_result_optional_data, evmc_get_optional_data().
      *
-     *  Also extends the size of the evmc_result to 64 bytes (full cache line).
+     * Also extends the size of the evmc_result to 64 bytes (full cache line).
      */
     uint8_t padding[4];
 };
@@ -448,40 +507,97 @@ typedef evmc_bytes32 (*evmc_get_storage_fn)(struct evmc_host_context* context,
 /**
  * The effect of an attempt to modify a contract storage item.
  *
+ * See @ref storagestatus for additional information about design of this enum
+ * and analysis of the specification.
+ *
  * For the purpose of explaining the meaning of each element, the following
  * notation is used:
  * - 0 is zero value,
  * - X != 0 (X is any value other than 0),
- * - Y != X, Y != 0 (Y is any value other than X and 0),
- * - Z != Y (Z is any value other than Y),
- * - the "->" means the change from one value to another.
+ * - Y != 0, Y != X,  (Y is any value other than X and 0),
+ * - Z != 0, Z != X, Z != X (Z is any value other than Y and X and 0),
+ * - the "o -> c -> v" triple describes the change status in the context of:
+ *   - o: original value (cold value before a transaction started),
+ *   - c: current storage value,
+ *   - v: new storage value to be set.
+ *
+ * The order of elements follows EIPs introducing net storage gas costs:
+ * - EIP-2200: https://eips.ethereum.org/EIPS/eip-2200,
+ * - EIP-1283: https://eips.ethereum.org/EIPS/eip-1283.
  */
 enum evmc_storage_status
 {
     /**
-     * The value of a storage item has been left unchanged: 0 -> 0 and X -> X.
+     * The new/same value is assigned to the storage item without affecting the cost structure.
+     *
+     * The storage value item is either:
+     * - left unchanged (c == v) or
+     * - the dirty value (o != c) is modified again (c != v).
+     * This is the group of cases related to minimal gas cost of only accessing warm storage.
+     * 0|X   -> 0 -> 0 (current value unchanged)
+     * 0|X|Y -> Y -> Y (current value unchanged)
+     * 0|X   -> Y -> Z (modified previously added/modified value)
+     *
+     * This is "catch all remaining" status. I.e. if all other statuses are correctly matched
+     * this status should be assigned to all remaining cases.
      */
-    EVMC_STORAGE_UNCHANGED = 0,
+    EVMC_STORAGE_ASSIGNED = 0,
 
     /**
-     * The value of a storage item has been modified: X -> Y.
+     * A new storage item is added by changing
+     * the current clean zero to a nonzero value.
+     * 0 -> 0 -> Z
      */
-    EVMC_STORAGE_MODIFIED = 1,
+    EVMC_STORAGE_ADDED = 1,
 
     /**
-     * A storage item has been modified after being modified before: X -> Y -> Z.
+     * A storage item is deleted by changing
+     * the current clean nonzero to the zero value.
+     * X -> X -> 0
      */
-    EVMC_STORAGE_MODIFIED_AGAIN = 2,
+    EVMC_STORAGE_DELETED = 2,
 
     /**
-     * A new storage item has been added: 0 -> X.
+     * A storage item is modified by changing
+     * the current clean nonzero to other nonzero value.
+     * X -> X -> Z
      */
-    EVMC_STORAGE_ADDED = 3,
+    EVMC_STORAGE_MODIFIED = 3,
 
     /**
-     * A storage item has been deleted: X -> 0.
+     * A storage item is added by changing
+     * the current dirty zero to a nonzero value other than the original value.
+     * X -> 0 -> Z
      */
-    EVMC_STORAGE_DELETED = 4
+    EVMC_STORAGE_DELETED_ADDED = 4,
+
+    /**
+     * A storage item is deleted by changing
+     * the current dirty nonzero to the zero value and the original value is not zero.
+     * X -> Y -> 0
+     */
+    EVMC_STORAGE_MODIFIED_DELETED = 5,
+
+    /**
+     * A storage item is added by changing
+     * the current dirty zero to the original value.
+     * X -> 0 -> X
+     */
+    EVMC_STORAGE_DELETED_RESTORED = 6,
+
+    /**
+     * A storage item is deleted by changing
+     * the current dirty nonzero to the original zero value.
+     * 0 -> Y -> 0
+     */
+    EVMC_STORAGE_ADDED_DELETED = 7,
+
+    /**
+     * A storage item is modified by changing
+     * the current dirty nonzero to the original nonzero value other than the current value.
+     * X -> Y -> X
+     */
+    EVMC_STORAGE_MODIFIED_RESTORED = 8
 };
 
 
@@ -491,7 +607,7 @@ enum evmc_storage_status
  * This callback function is used by a VM to update the given account storage entry.
  * The VM MUST make sure that the account exists. This requirement is only a formality because
  * VM implementations only modify storage of the account of the current execution context
- * (i.e. referenced by evmc_message::destination).
+ * (i.e. referenced by evmc_message::recipient).
  *
  * @param context  The pointer to the Host execution context.
  * @param address  The address of the account.
@@ -575,8 +691,10 @@ typedef size_t (*evmc_copy_code_fn)(struct evmc_host_context* context,
  * @param context      The pointer to the Host execution context. See ::evmc_host_context.
  * @param address      The address of the contract to be selfdestructed.
  * @param beneficiary  The address where the remaining ETH is going to be transferred.
+ * @return             The information if the given address has not been registered as
+ *                     selfdestructed yet. True if registered for the first time, false otherwise.
  */
-typedef void (*evmc_selfdestruct_fn)(struct evmc_host_context* context,
+typedef bool (*evmc_selfdestruct_fn)(struct evmc_host_context* context,
                                      const evmc_address* address,
                                      const evmc_address* beneficiary);
 
@@ -599,6 +717,52 @@ typedef void (*evmc_emit_log_fn)(struct evmc_host_context* context,
                                  size_t data_size,
                                  const evmc_bytes32 topics[],
                                  size_t topics_count);
+
+/**
+ * Access status per EIP-2929: Gas cost increases for state access opcodes.
+ */
+enum evmc_access_status
+{
+    /**
+     * The entry hasn't been accessed before – it's the first access.
+     */
+    EVMC_ACCESS_COLD = 0,
+
+    /**
+     * The entry is already in accessed_addresses or accessed_storage_keys.
+     */
+    EVMC_ACCESS_WARM = 1
+};
+
+/**
+ * Access account callback function.
+ *
+ * This callback function is used by a VM to add the given address
+ * to accessed_addresses substate (EIP-2929).
+ *
+ * @param context  The Host execution context.
+ * @param address  The address of the account.
+ * @return         EVMC_ACCESS_WARM if accessed_addresses already contained the address
+ *                 or EVMC_ACCESS_COLD otherwise.
+ */
+typedef enum evmc_access_status (*evmc_access_account_fn)(struct evmc_host_context* context,
+                                                          const evmc_address* address);
+
+/**
+ * Access storage callback function.
+ *
+ * This callback function is used by a VM to add the given account storage entry
+ * to accessed_storage_keys substate (EIP-2929).
+ *
+ * @param context  The Host execution context.
+ * @param address  The address of the account.
+ * @param key      The index of the account's storage entry.
+ * @return         EVMC_ACCESS_WARM if accessed_storage_keys already contained the key
+ *                 or EVMC_ACCESS_COLD otherwise.
+ */
+typedef enum evmc_access_status (*evmc_access_storage_fn)(struct evmc_host_context* context,
+                                                          const evmc_address* address,
+                                                          const evmc_bytes32* key);
 
 /**
  * Pointer to the callback function supporting EVM calls.
@@ -655,6 +819,12 @@ struct evmc_host_interface
 
     /** Emit log callback function. */
     evmc_emit_log_fn emit_log;
+
+    /** Access account callback function. */
+    evmc_access_account_fn access_account;
+
+    /** Access storage callback function. */
+    evmc_access_storage_fn access_storage;
 };
 
 
@@ -758,19 +928,62 @@ enum evmc_revision
     /**
      * The Istanbul revision.
      *
-     * The spec draft: https://eips.ethereum.org/EIPS/eip-1679.
+     * https://eips.ethereum.org/EIPS/eip-1679
      */
     EVMC_ISTANBUL = 7,
 
     /**
      * The Berlin revision.
      *
-     * The spec draft: https://eips.ethereum.org/EIPS/eip-2070.
+     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md
      */
     EVMC_BERLIN = 8,
 
+    /**
+     * The London revision.
+     *
+     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md
+     */
+    EVMC_LONDON = 9,
+
+    /**
+     * The Paris revision (aka The Merge).
+     *
+     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/paris.md
+     */
+    EVMC_PARIS = 10,
+
+    /**
+     * The Shanghai revision.
+     *
+     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md
+     */
+    EVMC_SHANGHAI = 11,
+
+    /**
+     * The Cancun revision.
+     *
+     * The future next revision after Shanghai.
+     * https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md
+     */
+    EVMC_CANCUN = 12,
+
+    /**
+     * The Prague revision.
+     *
+     * The future next revision after Cancun.
+     */
+    EVMC_PRAGUE = 13,
+
     /** The maximum EVM revision supported. */
-    EVMC_MAX_REVISION = EVMC_BERLIN
+    EVMC_MAX_REVISION = EVMC_PRAGUE,
+
+    /**
+     * The latest known EVM revision with finalized specification.
+     *
+     * This is handy for EVM tools to always use the latest revision available.
+     */
+    EVMC_LATEST_STABLE_REVISION = EVMC_SHANGHAI
 };
 
 
@@ -817,7 +1030,7 @@ enum evmc_capabilities
 
     /**
      * The VM is capable of executing the precompiled contracts
-     * defined for the range of destination addresses.
+     * defined for the range of code addresses.
      *
      * The EIP-1352 (https://eips.ethereum.org/EIPS/eip-1352) specifies
      * the range 0x000...0000 - 0x000...ffff of addresses
@@ -907,14 +1120,14 @@ struct evmc_vm
     /**
      * Optional pointer to function modifying VM's options.
      *
-     *  If the VM does not support this feature the pointer can be NULL.
+     * If the VM does not support this feature the pointer can be NULL.
      */
     evmc_set_option_fn set_option;
 };
 
 /* END Python CFFI declarations */
 
-#if EVMC_DOCUMENTATION
+#ifdef EVMC_DOCUMENTATION
 /**
  * Example of a function creating an instance of an example EVM implementation.
  *
@@ -933,7 +1146,7 @@ struct evmc_vm
 struct evmc_vm* evmc_create_example_vm(void);
 #endif
 
-#if __cplusplus
+#ifdef __cplusplus
 }
 #endif
 

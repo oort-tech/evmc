@@ -1,16 +1,14 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018-2019 The EVMC Authors.
+// Copyright 2018 The EVMC Authors.
 // Licensed under the Apache License, Version 2.0.
 
-//go:generate gcc -shared ../../../examples/example_vm/example_vm.c -I../../../include -o example_vm.so
+//go:generate g++ -shared ../../../examples/example_vm/example_vm.cpp -I../../../include -o example_vm.so
 
 package evmc
 
 import (
 	"bytes"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var modulePath = "./example_vm.so"
@@ -43,21 +41,45 @@ func TestLoadConfigure(t *testing.T) {
 	}
 }
 
-func TestExecute(t *testing.T) {
+func TestExecuteEmptyCode(t *testing.T) {
 	vm, _ := Load(modulePath)
 	defer vm.Destroy()
 
-	addr := common.Address{}
-	h := common.Hash{}
-	output, gasLeft, err := vm.Execute(nil, Byzantium, Call, false, 1, 999, addr, addr, nil, h, nil, h)
+	addr := Address{}
+	h := Hash{}
+	output, gasLeft, err := vm.Execute(nil, Byzantium, Call, false, 1, 999, addr, addr, nil, h, nil)
 
-	if bytes.Compare(output, []byte("Welcome to Byzantium!")) != 0 {
-		t.Errorf("execution unexpected output: %s", output)
+	if bytes.Compare(output, []byte("")) != 0 {
+		t.Errorf("execution unexpected output: %x", output)
 	}
-	if gasLeft != 99 {
-		t.Error("execution gas left is incorrect")
+	if gasLeft != 999 {
+		t.Errorf("execution gas left is incorrect: %d", gasLeft)
 	}
-	if err != Failure {
-		t.Error("execution returned unexpected error")
+	if err != nil {
+		t.Errorf("execution returned unexpected error: %v", err)
 	}
+}
+
+func TestRevision(t *testing.T) {
+	if MaxRevision != Prague {
+		t.Errorf("missing constant for revision %d", MaxRevision)
+	}
+	if LatestStableRevision != Shanghai {
+		t.Errorf("wrong latest stable revision %d", LatestStableRevision)
+	}
+}
+
+func TestErrorMessage(t *testing.T) {
+
+	check := func(err Error, expectedMsg string) {
+		if err.Error() != expectedMsg {
+			t.Errorf("wrong error message: '%s', expected: '%s'", err.Error(), expectedMsg)
+		}
+	}
+
+	check(Failure, "failure")
+	check(Revert, "revert")
+	check(Error(3), "out of gas")
+	check(Error(-1), "internal error")
+	check(Error(1000), "<unknown>")
 }

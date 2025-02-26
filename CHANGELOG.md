@@ -5,6 +5,263 @@ Documentation of all notable changes to the **EVMC** project.
 The format is based on [Keep a Changelog],
 and this project adheres to [Semantic Versioning].
 
+## [10.1.0] — 2023-04-22
+
+### Added
+
+- The Prague EVM revision (anticipated after Cancun)
+  [#683](https://github.com/ethereum/evmc/pull/683)
+- C++: Make `evmc::Result` accessible via `evmc_result` reference
+  [#686](https://github.com/ethereum/evmc/pull/686)
+
+### Changed
+
+- Set Shanghai as the latest stable revision `EVMC_LATEST_STABLE_REVISION`.
+  [#687](https://github.com/ethereum/evmc/pull/687)
+- Bump minimum supported compiler versions:
+  [#685](https://github.com/ethereum/evmc/pull/685)
+  - GCC: 7 → 8
+  - Clang: 5 → 9
+  - CMake: 3.10 → 3.16
+
+
+## [10.0.0] — 2022-08-25
+
+### Added
+
+- Information about `PUSH0` instruction from [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855)
+  for Shanghai revision.
+  [#628](https://github.com/ethereum/evmc/pull/628)
+- The [Paris](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/paris.md)
+  (aka The Merge) EVM revision.
+  [#627](https://github.com/ethereum/evmc/pull/627)
+  [#634](https://github.com/ethereum/evmc/pull/634)
+- The Cancun EVM revision (anticipated after Shanghai)
+  [#633](https://github.com/ethereum/evmc/pull/633)
+- The gas refund counter has been added to the `evmc_result`.
+  [#666](https://github.com/ethereum/evmc/pull/666)
+- The error code `EVMC_LOADER_UNSPECIFIED_ERROR` has been defined to provide
+  a convenient way of initializing `evmc_loader_error_code` objects.
+  [#617](https://github.com/ethereum/evmc/pull/617)
+- Support for Visual Studio 2022.
+  [#619](https://github.com/ethereum/evmc/pull/619)
+- C++ types `evmc::address` and `evmc::bytes32` are convertible to `std::basic_string_view<uint8_t>`.
+  [#636](https://github.com/ethereum/evmc/pull/636)
+- Convenient constructors for C++ `evmc::result`.
+  [#660](https://github.com/ethereum/evmc/pull/660)
+- Rust: The `EvmcVm::set_option` has been added.
+  [#614](https://github.com/ethereum/evmc/pull/614)
+
+### Changed
+
+- The `code_address` field has been added to the `evmc_message` type.
+  It represents the address of an account from which the code is being executed
+  and is useful for `DELEGATECALL` implementations.
+  [#611](https://github.com/ethereum/evmc/pull/611)
+  [#615](https://github.com/ethereum/evmc/pull/615)
+- The `evmc_message::destination` field has been renamed to `evmc_message::recipient`
+  to clarify its purpose and match the naming from the Yellow Paper.
+  [#616](https://github.com/ethereum/evmc/pull/616)
+- The `evmc_storage_status` has been extended to provide information about every possible case of
+  storage net gas metering ([EIP-2200](https://eips.ethereum.org/EIPS/eip-2200)).
+  [#661](https://github.com/ethereum/evmc/pull/661)
+- The `selfdestruct` method returns the information if the given address
+  has not been registered as selfdestructed yet.
+  [#662](https://github.com/ethereum/evmc/pull/662)
+- C++: The `evmc::result` has been renamed to `evmc::Result` for consistency
+  with C++ types of similar kind.
+  [#665](https://github.com/ethereum/evmc/pull/665)
+- C++: The `HostContext` does not cache transaction context (`evmc_tx_context`) anymore.
+  [#631](https://github.com/ethereum/evmc/pull/631)
+- Go: The `create2Salt` parameter has been removed from the `VM.Execute()`.
+  [#612](https://github.com/ethereum/evmc/pull/612)
+- Code quality improvements.
+  [#618](https://github.com/ethereum/evmc/pull/618)
+  [#620](https://github.com/ethereum/evmc/pull/620)
+  [#621](https://github.com/ethereum/evmc/pull/621)
+  [#632](https://github.com/ethereum/evmc/pull/632)
+- According to [EIP-4399](https://eips.ethereum.org/EIPS/eip-4399),
+  `block_difficulty` field was renamed to `block_prev_randao`, and `DIFFICULTY` opcode to `PREVRANDAO`.
+  [#635](https://github.com/ethereum/evmc/pull/635)
+- The `evmc::hex` support C++ library has been refactored and converted to a single-header library.
+  [#643](https://github.com/ethereum/evmc/pull/643)
+  [#648](https://github.com/ethereum/evmc/pull/648)
+  [#649](https://github.com/ethereum/evmc/pull/649)
+  [#654](https://github.com/ethereum/evmc/pull/654)
+- For command-line tools to load input/code from a file the `@file` syntax must be used.
+  E.g. `evmc run @contract.evm --input @data.in`.
+  [#647](https://github.com/ethereum/evmc/pull/647)
+- Improvements to the `evmc::MockedHost` testing utility around account storage and selfdestructs.
+  [#661](https://github.com/ethereum/evmc/pull/661)
+  [#662](https://github.com/ethereum/evmc/pull/662)
+  [#670](https://github.com/ethereum/evmc/pull/670)
+
+### Fixed
+
+- Java bindings fixes.
+  [#653](https://github.com/ethereum/evmc/pull/653)
+
+### Removed
+
+- The support for C++ `0_address` and `0_bytes32` literals has been removed.
+  [#652](https://github.com/ethereum/evmc/pull/652)
+
+## [9.0.0] — 2021-06-30
+
+### Added
+
+- Support for **London** [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198):
+  `block_base_fee` member added to `evmc_tx_context`,
+  `BASEFEE` instruction added.
+  [#603](https://github.com/ethereum/evmc/pull/603)
+
+- Added **Shanghai** EVM revision.
+  [#604](https://github.com/ethereum/evmc/pull/604)
+
+- Added [`EVMC_LATEST_STABLE_REVISON`](https://evmc.ethereum.org/group__EVMC.html#ggae5759b1590071966ccf6a505b52a0ef7a0dd8bdd55816359290e8fb8648aeb03e):
+  alias for the latest known EVM revision with finalized specification.
+  [#605](https://github.com/ethereum/evmc/pull/605)
+
+- The `--bench` flag has been added to `evmc run` to more precisely measure execution time.
+  [#598](https://github.com/ethereum/evmc/pull/598)
+
+- Output stream operators and `to_string()` overloads for EVMC types
+  `evmc_revision` and `evmc_status_code` are now part of public C and C++ API.
+  [#599](https://github.com/ethereum/evmc/pull/599)
+
+### Changed
+
+- Adjustments to `evmc::mocked_host`: storage changes to non-existent keys are now preserved.
+  [#594](https://github.com/ethereum/evmc/pull/594)
+
+## [8.0.0] — 2021-04-27
+
+### Added
+
+- Support for **Berlin** [EIP-2929](https://eips.ethereum.org/EIPS/eip-2929):
+  `access_account()` and `access_storage()` functions added to `evmc_host_interface`.
+  [#571](https://github.com/ethereum/evmc/pull/571)
+
+### Changed
+
+- Instruction `SHA3` has been renamed to `KECCAK256` as proposed by
+  [EIP-1803](https://eips.ethereum.org/EIPS/eip-1803) to better match the underlying hash function.
+  [#590](https://github.com/ethereum/evmc/pull/590)
+- The C++ standard required has been increased to **C++17**. The minimal officially supported Clang
+  version has been increased from 3.8 to 5.
+  [#584](https://github.com/ethereum/evmc/pull/584)
+
+
+## [7.5.0] — 2021-03-23
+
+### Added
+
+- New option `--input` for `evmc run` tool to specify execution input data (_calldata_).
+  [#564](https://github.com/ethereum/evmc/pull/564)
+- New option `--create` for `evmc run` tool to create new contract with provided init code before 
+  main execution. This allows using Solidity compiler binary outputs directly by the tool.
+  [#566](https://github.com/ethereum/evmc/pull/566)
+  ```bash
+  solc --bin Contract.sol -o .
+  evmc run --create Contract.bin --input 370158ea
+  ```
+- `evmc run` tool accepts both hex-strings or file paths for `code` and 
+  `--input` arguments.
+  [#574](https://github.com/ethereum/evmc/pull/574)
+- New static C++ library `evmc::hex` added with procedures for hex encoding/decoding. 
+  Hex-strings are used by EVMC and related projects for internal testing.
+  [#575](https://github.com/ethereum/evmc/pull/575)
+- New `EVMC_INSUFFICIENT_BALANCE` error code has been registered.
+  [#528](https://github.com/ethereum/evmc/pull/528)
+
+### Changed
+
+- Java bindings fixes and improvements. It must be noted the bindings are in a _work in progress_
+  state and are not suggested for production use.
+  [#535](https://github.com/ethereum/evmc/pull/535)
+  [#537](https://github.com/ethereum/evmc/pull/537)
+  [#541](https://github.com/ethereum/evmc/pull/541)
+  [#545](https://github.com/ethereum/evmc/pull/545)
+  [#549](https://github.com/ethereum/evmc/pull/549)
+  [#550](https://github.com/ethereum/evmc/pull/550)
+  [#551](https://github.com/ethereum/evmc/pull/551)
+  [#552](https://github.com/ethereum/evmc/pull/552)
+  [#553](https://github.com/ethereum/evmc/pull/553)
+  [#557](https://github.com/ethereum/evmc/pull/557)
+  [#579](https://github.com/ethereum/evmc/pull/579)
+  [#580](https://github.com/ethereum/evmc/pull/580)
+  [#581](https://github.com/ethereum/evmc/pull/581)
+- C++'s `std::hash` and comparison operators for EVMC types has been optimized.
+  [#560](https://github.com/ethereum/evmc/pull/5601)
+  [#561](https://github.com/ethereum/evmc/pull/561)
+- `evmc --version` now also informs about the version of the loaded EVM.
+  [#567](https://github.com/ethereum/evmc/pull/567)
+- The Example VM (`evmc::example-vm`) has been converted from C to C++. It now implements a subset
+  of real EVM opcodes so examples and tests can use valid EVM bytecodes.
+  [#539](https://github.com/ethereum/evmc/pull/539)
+
+## [7.4.0] — 2020-06-24
+
+### Changed
+
+- The C++ standard required has been increased to **C++14**.
+  [#521](https://github.com/ethereum/evmc/pull/521)
+- The C++ literals for `address` and `bytes32` types have been reimplemented to
+  use `static_assert` to report errors. This makes C++ bindings exception-free
+  (_no-throw guarantee_ level of exception safety).
+  [#520](https://github.com/ethereum/evmc/pull/520)
+
+### Removed
+
+- The support for **Visual Studio 2015** C/C++ compiler has been dropped 
+  as a consequence of requiring C++14.
+  [#521](https://github.com/ethereum/evmc/pull/521)
+
+## [7.3.0] — 2020-05-20
+
+### Added
+
+- Support for **Go modules**.
+  [#486](https://github.com/ethereum/evmc/pull/486)
+
+### Changed
+
+- The minimum **Go version** supported bumped to **1.11** (Go modules are required).
+  [#486](https://github.com/ethereum/evmc/pull/486)
+- Removed dependency on go-ethereum in Go bindings by introducing own `Address` and `Hash` types.
+  [#513](https://github.com/ethereum/evmc/pull/513)
+
+
+## [7.2.0] — 2020-05-13
+
+### Added
+
+- Added **Java** bindings.
+  [#455](https://github.com/ethereum/evmc/pull/455)
+  [#490](https://github.com/ethereum/evmc/pull/490)
+  [#503](https://github.com/ethereum/evmc/pull/503)
+  [#512](https://github.com/ethereum/evmc/pull/512)
+- New **evmc command-line tool** has been added. At the moment it supports
+  command _run_ for executing bytecode in any EVMC-compatible VM implementation.
+  Try `evmc run --help` for more information.
+- C++: EVMC basic types `address` and `bytes32` have all the comparison operators supported.
+  [#474](https://github.com/ethereum/evmc/pull/474)
+- C++: Convenient constructors from `uint64_t` added for basic types `address` and `bytes32`.
+  [#488](https://github.com/ethereum/evmc/pull/488)
+- C++: Added `VM::get_raw_pointer()` method to directly access VM C API when needed.
+  [#492](https://github.com/ethereum/evmc/pull/492)
+
+### Changed
+
+- CMake minimum version required has been bumped to [3.10](https://cmake.org/cmake/help/v3.10/release/3.10.html).
+  [#495](https://github.com/ethereum/evmc/pull/495)
+
+### Fixed
+
+- The implementation of C++ `operator<` for `evmc::address` and `evmc::bytes32` has been fixed.
+  [#498](https://github.com/ethereum/evmc/pull/498)
+
+
 ## [7.1.0] — 2019-11-29
 
 ### Added
@@ -88,7 +345,7 @@ removed.
   [#445](https://github.com/ethereum/evmc/pull/445)
   [#449](https://github.com/ethereum/evmc/pull/449)
   [#451](https://github.com/ethereum/evmc/pull/451)
-   
+
 
 
 ## [6.3.1] - 2019-08-19
@@ -426,6 +683,14 @@ removed.
   [#52](https://github.com/ethereum/evmc/pull/52)
 
 
+[10.1.0]: https://github.com/ethereum/evmc/releases/tag/v10.1.0
+[10.0.0]: https://github.com/ethereum/evmc/releases/tag/v10.0.0
+[9.0.0]: https://github.com/ethereum/evmc/releases/tag/v9.0.0
+[8.0.0]: https://github.com/ethereum/evmc/releases/tag/v8.0.0
+[7.5.0]: https://github.com/ethereum/evmc/releases/tag/v7.5.0
+[7.4.0]: https://github.com/ethereum/evmc/releases/tag/v7.4.0
+[7.3.0]: https://github.com/ethereum/evmc/releases/tag/v7.3.0
+[7.2.0]: https://github.com/ethereum/evmc/releases/tag/v7.2.0
 [7.1.0]: https://github.com/ethereum/evmc/releases/tag/v7.1.0
 [7.0.0]: https://github.com/ethereum/evmc/releases/tag/v7.0.0
 [6.3.1]: https://github.com/ethereum/evmc/releases/tag/v6.3.1

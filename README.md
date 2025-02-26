@@ -19,18 +19,21 @@ Please visit the [documentation].
 
 ### Languages support
 
-| Language                      | Supported Versions    | Supported Compilers
-| ----------------------------- | --------------------- | ------------------------------
-| **C**                         | C99, C11              | GCC 6+, clang 3.8+, MSVC 2015+
-| **C++**                       | C++11, C++14, C++17   | GCC 6+, clang 3.8+, MSVC 2015+
-| **Go** _(bindings)_           | 1.9 - 1.12            |
-| **Rust** _(bindings)_[¹](#n1) | 2018 edition          | 1.37.0 and newer
+| Language                      | Supported Versions   | Supported Compilers          | Feature Support   |
+|-------------------------------|----------------------|------------------------------|-------------------|
+| **C**                         | C99, C11             | GCC 8+, clang 9+, MSVC 2017+ | Host- and VM-side |
+| **C++**                       | C++17                | GCC 8+, clang 9+, MSVC 2017+ | Host- and VM-side |
+| **Go** _(bindings)_           | 1.11+ (with modules) |                              | Host-side only    |
+| **Rust** _(bindings)_[¹](#n1) | 2018 edition         | 1.47.0 and newer             | VM-side only      |
+| **Java** _(bindings)_[²](#n2) | 11                   |                              | Host-side only    |
 
-<b id="n1">1</b>. Rust support is limited and not complete yet, but it is mostly functional already. Breaking changes are possible at this stage.
+1. <sup id="n1">↑</sup> Rust support is limited and not complete yet, but it is mostly functional already. Breaking changes are possible at this stage.
+2. <sup id="n2">↑</sup> Java support is in progress and the interface remains in flux. Breaking changes are possible at this stage.
 
 ### Testing tools
 
-* **evmc-vmtester** ([test/vmtester]) — can test any EVM implementation for compatibility with EVMC.
+* **evmc run** ([tools/evmc]) — executes bytecode in any EVMC-compatible VM implementation.
+* **evmc-vmtester** ([tools/vmtester]) — can test any EVM implementation for compatibility with EVMC.
 * **evm-test** ([evmone → test/unittests]) — allows running the collection of [evmone]'s unit tests on any EVMC-compatible EVM implementation.
 * **evmone-fuzzer** ([evmone → test/fuzzer]) — differential fuzzer for EVMC-compatible EVM implementations. 
 
@@ -40,22 +43,27 @@ Please visit the [documentation].
 ### EVMs
 
 - [aleth-interpreter]
+- [Daytona]
+- [eip1962-evmc] (EIP-2003 style precompile)
 - [evmjit]
 - [evmone]
 - [Hera]
 - [Hera.rs]
-- [Daytona]
-- [eip1962-evmc] (EIP-2003 style precompile)
+- [ssvm-evmc]
 
 ### Clients
 
 - [aleth]
-- [nim-evmc]
+- [core-geth] (in progress)
+- [evmc-js]
 - [go-ethereum] (in progress)
+- [nim-evmc]
 - [pyevm] (in progress)
 - [pyethereum] (abandoned)
+- [rust-ssvm] (Rust Host-side)
+- [silkworm]
 - [Solidity] (for integration testing)
-
+- [turbo-geth]
 
 ## Maintainers
 
@@ -72,8 +80,9 @@ Talk with us on the [EVMC Gitter chat][Gitter].
 
 ## License
 
-Licensed under the [MIT License](LICENSE).
+[![license badge]][Apache License, Version 2.0]
 
+Licensed under the [Apache License, Version 2.0].
 
 ## Internal
 
@@ -89,6 +98,7 @@ Licensed under the [MIT License](LICENSE).
 
 [@axic]: https://github.com/axic
 [@chfast]: https://github.com/chfast
+[Apache License, Version 2.0]: LICENSE
 [documentation]: https://ethereum.github.io/evmc
 [ewasm]: https://github.com/ewasm/design
 [evmjit]: https://github.com/ethereum/evmjit
@@ -99,6 +109,7 @@ Licensed under the [MIT License](LICENSE).
 [Hera.rs]: https://github.com/ewasm/hera.rs
 [Daytona]: https://github.com/axic/daytona
 [eip1962-evmc]: https://github.com/axic/eip1962-evmc
+[ssvm-evmc]: https://github.com/second-state/ssvm-evmc
 [Gitter]: https://gitter.im/ethereum/evmc
 [aleth-interpreter]: https://github.com/ethereum/aleth/tree/master/libaleth-interpreter
 [aleth]: https://github.com/ethereum/aleth
@@ -107,8 +118,15 @@ Licensed under the [MIT License](LICENSE).
 [go-ethereum]: https://github.com/ethereum/go-ethereum/pull/17954
 [pyevm]: https://github.com/ethereum/py-evm
 [pyethereum]: https://github.com/ethereum/pyethereum/pull/406
+[silkworm]: https://github.com/torquem-ch/silkworm
+[turbo-geth]: https://github.com/ledgerwatch/turbo-geth
+[core-geth]: https://github.com/etclabscore/core-geth/issues/55
+[evmc-js]: https://github.com/RainBlock/evmc-js
+[rust-ssvm]: https://github.com/second-state/rust-ssvm
 [standard readme]: https://github.com/RichardLitt/standard-readme
-[test/vmtester]: https://github.com/ethereum/evmc/tree/master/test/vmtester
+[tools/evmc]: https://github.com/ethereum/evmc/tree/master/tools/evmc
+[tools/vmtester]: https://github.com/ethereum/evmc/tree/master/tools/vmtester
 
 [gitter badge]: https://img.shields.io/gitter/room/ethereum/evmc.svg
+[license badge]: https://img.shields.io/github/license/ethereum/evmc.svg?logo=apache
 [readme style standard badge]: https://img.shields.io/badge/readme%20style-standard-brightgreen.svg

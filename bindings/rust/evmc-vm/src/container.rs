@@ -1,11 +1,10 @@
-/* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2019 The EVMC Authors.
- * Licensed under the Apache License, Version 2.0.
- */
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2019 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0.
 
 use crate::EvmcVm;
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 /// Container struct for EVMC instances and user-defined data.
 pub struct EvmcContainer<T>
@@ -30,12 +29,18 @@ where
     }
 
     /// Take ownership of the given pointer and return a box.
+    ///
+    /// # Safety
+    /// This function expects a valid instance to be passed.
     pub unsafe fn from_ffi_pointer(instance: *mut ::evmc_sys::evmc_vm) -> Box<Self> {
         assert!(!instance.is_null(), "from_ffi_pointer received NULL");
         Box::from_raw(instance as *mut EvmcContainer<T>)
     }
 
     /// Convert boxed self into an FFI pointer, surrendering ownership of the heap data.
+    ///
+    /// # Safety
+    /// This function will return a valid instance pointer.
     pub unsafe fn into_ffi_pointer(boxed: Box<Self>) -> *mut ::evmc_sys::evmc_vm {
         Box::into_raw(boxed) as *mut ::evmc_sys::evmc_vm
     }
@@ -49,6 +54,15 @@ where
 
     fn deref(&self) -> &Self::Target {
         &self.vm
+    }
+}
+
+impl<T> DerefMut for EvmcContainer<T>
+where
+    T: EvmcVm,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.vm
     }
 }
 
@@ -85,8 +99,9 @@ mod tests {
             block_number: 0,
             block_timestamp: 0,
             block_gas_limit: 0,
-            block_difficulty: Uint256::default(),
+            block_prev_randao: Uint256::default(),
             chain_id: Uint256::default(),
+            block_base_fee: Uint256::default(),
         }
     }
 
@@ -109,12 +124,13 @@ mod tests {
             flags: 0,
             depth: 0,
             gas: 0,
-            destination: ::evmc_sys::evmc_address::default(),
+            recipient: ::evmc_sys::evmc_address::default(),
             sender: ::evmc_sys::evmc_address::default(),
             input_data: std::ptr::null(),
             input_size: 0,
             value: ::evmc_sys::evmc_uint256be::default(),
             create2_salt: ::evmc_sys::evmc_bytes32::default(),
+            code_address: ::evmc_sys::evmc_address::default(),
         };
         let message: ExecutionMessage = (&message).into();
 
@@ -131,6 +147,8 @@ mod tests {
             get_tx_context: Some(get_dummy_tx_context),
             get_block_hash: None,
             emit_log: None,
+            access_account: None,
+            access_storage: None,
         };
         let host_context = std::ptr::null_mut();
 

@@ -1,7 +1,6 @@
-/* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2019 The EVMC Authors.
- * Licensed under the Apache License, Version 2.0.
- */
+// EVMC: Ethereum Client-VM Connector API.
+// Copyright 2019 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0.
 
 /**
  * @file
@@ -15,6 +14,9 @@ const char* evmc_test_library_symbol = NULL;
 evmc_create_fn evmc_test_create_fn = NULL;
 
 static const char* evmc_test_last_error_msg = NULL;
+
+/* Limited variant of strcpy_s(). Exposed to unittests when building with EVMC_LOADER_MOCK. */
+int strcpy_sx(char* dest, size_t destsz, const char* src);
 
 static int evmc_test_load_library(const char* filename)
 {
@@ -40,7 +42,7 @@ static evmc_create_fn evmc_test_get_symbol_address(int handle, const char* symbo
     return NULL;
 }
 
-static const char* evmc_test_get_last_error_msg()
+static const char* evmc_test_get_last_error_msg(void)
 {
     // Return the last error message only once.
     const char* m = evmc_test_last_error_msg;
